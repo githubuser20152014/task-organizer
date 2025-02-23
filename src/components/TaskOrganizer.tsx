@@ -1,27 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
 import { PlusCircle, X, Pencil, Check, GripVertical, Trash2, ArrowRight, CheckCircle2, Circle } from 'lucide-react';
+
+interface Task {
+  id: string;
+  text: string;
+  completed: boolean;
+  fromProject?: string;
+  originalText?: string;
+}
+
+interface Projects {
+  [key: string]: Task[];
+}
+
+interface TaskItemProps {
+  task: Task;
+  projectName?: string | null;
+  showMoveToNow?: boolean;
+}
+
+interface TaskGroups {
+  [key: string]: Task[];
+}
 
 const TaskOrganizer = () => {
   // Initialize state from localStorage or use default empty values
-  const [brainDump, setBrainDump] = useState(() => {
+  const [brainDump, setBrainDump] = useState<Task[]>(() => {
     const saved = localStorage.getItem('mindflow_brainDump');
     return saved ? JSON.parse(saved) : [];
   });
   
-  const [projects, setProjects] = useState(() => {
-    const saved = localStorage.getItem('mindflow_projects');
-    return saved ? JSON.parse(saved) : {};
-  });
+  const [projects, setProjects] = useState<Projects>({});
   
-  const [projectOrder, setProjectOrder] = useState(() => {
+  const [projectOrder, setProjectOrder] = useState<string[]>(() => {
     const saved = localStorage.getItem('mindflow_projectOrder');
     return saved ? JSON.parse(saved) : [];
   });
   
-  const [nowList, setNowList] = useState(() => {
+  const [nowList, setNowList] = useState<Task[]>(() => {
     const saved = localStorage.getItem('mindflow_nowList');
     return saved ? JSON.parse(saved) : [];
   });
@@ -49,12 +68,12 @@ const TaskOrganizer = () => {
   useEffect(() => {
     localStorage.setItem('mindflow_nowList', JSON.stringify(nowList));
   }, [nowList]);
-  const [inputValue, setInputValue] = useState('');
-  const [editId, setEditId] = useState(null);
-  const [editValue, setEditValue] = useState('');
-  const [draggedProject, setDraggedProject] = useState(null);
+  const [inputValue, setInputValue] = useState<string>('');
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState<string>('');
+  const [draggedProject, setDraggedProject] = useState<string | null>(null);
 
-  const parseTask = (text) => {
+  const parseTask = (text: string) => {
     const hashtagRegex = /#(\w+)/g;
     const hashtags = [...text.matchAll(hashtagRegex)].map(match => match[1]);
     const cleanText = text.replace(hashtagRegex, '').trim();
@@ -66,7 +85,7 @@ const TaskOrganizer = () => {
     if (trimmedValue) {
       const { text, projects: taskProjects } = parseTask(trimmedValue);
       const newTask = {
-        id: Date.now(),
+        id: Date.now().toString(),
         text,
         originalText: trimmedValue,
         completed: false
@@ -91,14 +110,12 @@ const TaskOrganizer = () => {
     }
   };
 
-  const moveToNow = (task, projectName = null) => {
-    // Add to Now list with project information
-    setNowList(current => [...current, { 
+  const moveToNow = (task: Task, projectName: string | null = null) => {
+    setNowList(current => [...current, {
       ...task,
-      fromProject: projectName 
+      fromProject: projectName || undefined
     }]);
 
-    // Remove from source
     if (projectName) {
       setProjects(current => {
         const newProjects = { ...current };
@@ -114,7 +131,7 @@ const TaskOrganizer = () => {
     }
   };
 
-  const deleteProject = (projectName) => {
+  const deleteProject = (projectName: string) => {
     const projectTasks = projects[projectName] || [];
     setBrainDump(current => [
       ...current,
@@ -133,15 +150,15 @@ const TaskOrganizer = () => {
     setProjectOrder(current => current.filter(p => p !== projectName));
   };
 
-  const handleDragStart = (projectName) => {
+  const handleDragStart = (projectName: string) => {
     setDraggedProject(projectName);
   };
 
-  const handleDragOver = (e, projectName) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, projectName: string) => {
     e.preventDefault();
     const draggedOverProject = projectName;
     
-    if (draggedProject === draggedOverProject) return;
+    if (!draggedProject || draggedProject === draggedOverProject) return;
     
     const draggedProjectIndex = projectOrder.indexOf(draggedProject);
     const draggedOverProjectIndex = projectOrder.indexOf(draggedOverProject);
@@ -160,17 +177,18 @@ const TaskOrganizer = () => {
     setDraggedProject(null);
   };
 
-  const startEdit = (task) => {
+  const startEdit = (task: Task) => {
     console.log('Starting edit for task:', task); // Debug log
     setEditId(task.id);
     setEditValue(task.originalText || task.text);
   };
 
   const saveEdit = () => {
-    console.log('Saving edit:', editValue); // Debug log
+    if (!editId) return;
+
     if (editValue.trim()) {
       const { text, projects: taskProjects } = parseTask(editValue);
-      const updatedTask = {
+      const updatedTask: Task = {
         id: editId,
         text,
         originalText: editValue,
@@ -220,7 +238,7 @@ const TaskOrganizer = () => {
     setEditValue('');
   };
 
-  const removeTask = (taskId) => {
+  const removeTask = (taskId: string) => {
     setBrainDump(current => current.filter(task => task.id !== taskId));
     setProjects(current => {
       const newProjects = { ...current };
@@ -236,7 +254,7 @@ const TaskOrganizer = () => {
     setNowList(current => current.filter(task => task.id !== taskId));
   };
 
-  const toggleComplete = (taskId, projectName = null) => {
+  const toggleComplete = (taskId: string, projectName: string | null = null) => {
     // Toggle in brain dump
     setBrainDump(current =>
       current.map(task =>
@@ -263,7 +281,7 @@ const TaskOrganizer = () => {
     );
   };
 
-  const TaskItem = ({ task, projectName = null, showMoveToNow = true }) => {
+  const TaskItem = ({ task, projectName = null, showMoveToNow = true }: TaskItemProps) => {
     const isEditing = editId === task.id;
     
     return (
@@ -272,8 +290,8 @@ const TaskOrganizer = () => {
           <div className="flex gap-2 w-full">
             <Input
               value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              onKeyDown={(e) => {
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditValue(e.target.value)}
+              onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                 if (e.key === 'Enter') saveEdit();
                 if (e.key === 'Escape') cancelEdit();
               }}
@@ -370,10 +388,10 @@ const TaskOrganizer = () => {
               <div className="flex gap-2 mb-6">
                 <Input
                   value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInputValue(e.target.value)}
                   placeholder="Add task (use #project to assign)..."
                   className="flex-1 bg-white/80 border-gray-200 focus:ring-blue-100"
-                  onKeyPress={(e) => e.key === 'Enter' && addTask()}
+                  onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && addTask()}
                 />
                 <Button 
                   onClick={addTask} 
@@ -402,7 +420,7 @@ const TaskOrganizer = () => {
                 <div
                   key={projectName}
                   draggable
-                  onDragStart={() => handleDragStart(projectName)}
+                  onDragStart={(e) => handleDragStart(projectName)}
                   onDragOver={(e) => handleDragOver(e, projectName)}
                   onDragEnd={handleDragEnd}
                   className={`transition-opacity duration-200 ${draggedProject === projectName ? 'opacity-50' : ''}`}
@@ -471,12 +489,14 @@ const TaskOrganizer = () => {
               {Object.entries(
                 nowList
                   .filter(task => task.fromProject)
-                  .reduce((groups, task) => {
+                  .reduce<TaskGroups>((groups, task) => {
                     const project = task.fromProject;
-                    if (!groups[project]) {
-                      groups[project] = [];
+                    if (project) {
+                      if (!groups[project]) {
+                        groups[project] = [];
+                      }
+                      groups[project].push(task);
                     }
-                    groups[project].push(task);
                     return groups;
                   }, {})
               ).map(([projectName, tasks]) => (
@@ -488,7 +508,7 @@ const TaskOrganizer = () => {
                     {tasks.map(task => (
                       <TaskItem 
                         key={task.id} 
-                        task={{...task, fromProject: null}}
+                        task={{...task, fromProject: undefined}}
                         showMoveToNow={false}
                       />
                     ))}
